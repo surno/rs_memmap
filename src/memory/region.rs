@@ -1,3 +1,4 @@
+use std::fmt;
 use std::path::PathBuf;
 use std::str::FromStr;
 use thiserror::Error;
@@ -41,6 +42,19 @@ impl FromStr for Permissions {
     }
 }
 
+impl fmt::Display for Permissions {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}{}{}{}",
+            if self.read { 'r' } else { '-' },
+            if self.write { 'w' } else { '-' },
+            if self.execute { 'x' } else { '-' },
+            if self.shared { 's' } else { 'p' },
+        )
+    }
+}
+
 pub enum PathType {
     // Actual file on disk
     File(PathBuf),
@@ -81,6 +95,21 @@ impl FromStr for PathType {
     }
 }
 
+impl fmt::Display for PathType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PathType::Anonymous => write!(f, "[anonymous]"),
+            PathType::Heap => write!(f, "[heap]"),
+            PathType::Stack => write!(f, "[stack]"),
+            PathType::Vdso => write!(f, "[vdso]"),
+            PathType::Vvar => write!(f, "[vvar]"),
+            PathType::Vsyscall => write!(f, "[vsyscall]"),
+            PathType::File(path) => write!(f, "{}", path.display()),
+            PathType::Deleted(path) => write!(f, "{} (deleted)", path.display()),
+        }
+    }
+}
+
 
 pub struct MemoryRegion {
     start: u64,
@@ -90,6 +119,12 @@ pub struct MemoryRegion {
     device: (u8, u8),
     inode: u64,
     path_name: Option<PathType>
+}
+
+impl MemoryRegion {
+    fn size(&self) -> u64 {
+        return self.end - self.start;
+    }
 }
 
 impl FromStr for MemoryRegion {
@@ -164,4 +199,38 @@ fn parse_device(s: &str) -> Result<(u8, u8), ParseError> {
     let minor = u8::from_str_radix(minor_str, 16)?;
 
     Ok((major, minor))
+}
+
+fn format_size(bytes: u64) -> String {
+    const KIB: u64 = 1024;
+    const MIB: u64 = 1024 * KIB;
+    const GIB: u64 = 1024 * MIB;
+
+    if bytes >= GIB {
+        format!("{:.1} GiB", bytes as f64 / GIB as f64)
+    } else if bytes >= MIB {
+        format!("{:.1} MiB", bytes as f64 / MIB as f64)
+    } else if bytes >= KIB {
+        format!("{:.1} KiB", bytes as f64 / KIB as f64)
+    } else {
+        format!("{} B", bytes)
+    }
+}
+
+impl fmt::Display for MemoryRegion {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{:012x}-{:012x} {} {:8x} {:>10} {:02x}:{:02x} {:8} {}",
+            self.start,
+            self.end,
+            self.permissions,
+            self.offset,
+            format_size(self.size()),
+            self.device.0,
+            self.device.1,
+            self.inode,
+            self.path_name.as_ref().map_or(String::new(), |p| p.to_string()),
+        )
+    }
 }

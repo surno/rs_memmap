@@ -4,7 +4,7 @@ use std::str::FromStr;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum ParseError {
+pub enum MemoryParseError {
     #[error("missing field: {0}")]
     MissingField(&'static str),
     #[error("invalid address range: {0}")]
@@ -25,12 +25,12 @@ pub struct Permissions {
 }
 
 impl FromStr for Permissions {
-    type Err = ParseError;
+    type Err = MemoryParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let bytes = s.as_bytes();
         if bytes.len() != 4 {
-            return Err(ParseError::InvalidPermissions(s.to_string()));
+            return Err(MemoryParseError::InvalidPermissions(s.to_string()));
         }
 
         Ok(Permissions{
@@ -74,7 +74,7 @@ pub enum PathType {
 }
 
 impl FromStr for PathType {
-    type Err = ParseError;
+    type Err = MemoryParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(
@@ -128,7 +128,7 @@ impl MemoryRegion {
 }
 
 impl FromStr for MemoryRegion {
-    type Err = ParseError;
+    type Err = MemoryParseError;
 
     fn from_str(line: &str) -> Result<Self, Self::Err> {
         // Format: "start-end perms offset dev inode pathname"
@@ -139,27 +139,27 @@ impl FromStr for MemoryRegion {
 
         // Parse address range
         let addr_range = parts.next()
-            .ok_or(ParseError::MissingField("address range"))?;
+            .ok_or(MemoryParseError::MissingField("address range"))?;
         let (start, end) = parse_address_range(addr_range)?;
 
         // Parse permissions
         let perms_str = parts.next()
-            .ok_or(ParseError::MissingField("permissions"))?;
+            .ok_or(MemoryParseError::MissingField("permissions"))?;
         let permissions = perms_str.parse()?;
 
         // Parse offset
         let offset_str = parts.next()
-            .ok_or(ParseError::MissingField("offset"))?;
+            .ok_or(MemoryParseError::MissingField("offset"))?;
         let offset = u64::from_str_radix(offset_str, 16)?;
 
         // Parse device major:minor
         let dev_str = parts.next()
-            .ok_or(ParseError::MissingField("device"))?;
+            .ok_or(MemoryParseError::MissingField("device"))?;
         let device = parse_device(dev_str)?;
 
         // Parse inode
         let inode_str = parts.next()
-            .ok_or(ParseError::MissingField("inode"))?;
+            .ok_or(MemoryParseError::MissingField("inode"))?;
         let inode = inode_str.parse()?;
 
         // Pathname is optional and may contain spaces
@@ -179,10 +179,10 @@ impl FromStr for MemoryRegion {
     }
 }
 
-fn parse_address_range(s: &str) -> Result<(u64, u64), ParseError> {
+fn parse_address_range(s: &str) -> Result<(u64, u64), MemoryParseError> {
     let (start_str, end_str) = s
         .split_once('-')
-        .ok_or_else(|| ParseError::InvalidAddress(s.to_string()))?;
+        .ok_or_else(|| MemoryParseError::InvalidAddress(s.to_string()))?;
 
     let start = u64::from_str_radix(start_str, 16)?;
     let end = u64::from_str_radix(end_str, 16)?;
@@ -190,10 +190,10 @@ fn parse_address_range(s: &str) -> Result<(u64, u64), ParseError> {
     Ok((start, end))
 }
 
-fn parse_device(s: &str) -> Result<(u8, u8), ParseError> {
+fn parse_device(s: &str) -> Result<(u8, u8), MemoryParseError> {
     let (major_str, minor_str) = s
         .split_once(':')
-        .ok_or_else(|| ParseError::InvalidDevice(s.to_string()))?;
+        .ok_or_else(|| MemoryParseError::InvalidDevice(s.to_string()))?;
 
     let major = u8::from_str_radix(major_str, 16)?;
     let minor = u8::from_str_radix(minor_str, 16)?;

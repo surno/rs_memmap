@@ -1,4 +1,4 @@
-use std::{fs, io, str::FromStr};
+use std::{collections::HashMap, fs, io, str::FromStr};
 
 use thiserror::Error;
 
@@ -19,6 +19,21 @@ pub struct Process {
     pub pid: u32,
     pub cmd_line: String,
     pub memory_regions: Vec<DetailedMemoryRegion>,
+}
+
+type SortedRssEntries = Vec<(String, u64)>;
+
+impl Process {
+    pub fn get_rss_totals(&self) -> SortedRssEntries {
+      let mut map: HashMap<String, u64>    = HashMap::new();                                                                                                                   
+      for region in &self.memory_regions {                                                                                                            
+          *map.entry(region.region.path_name.as_ref().and_then(|x| Some(x.to_string())).unwrap_or("[anonymous]".to_string())).or_default() += region.rss_kb;                                                                                              
+      }                                                                                                                                               
+      let mut vec: SortedRssEntries = map.into_iter().collect();                                                                                                
+      vec.sort_by(|a, b| b.1.cmp(&a.1)); // descending by RSS                                                                                         
+      vec  
+    }
+
 }
 
 impl TryFrom<u32> for Process {
@@ -52,12 +67,13 @@ impl TryFrom<u32> for Process {
         }
 
         Ok(Process { pid, cmd_line, memory_regions})
-    }
-    
+    }    
 }
 
 fn is_address_line(line: &str) -> bool {
-    line.chars().next().map_or(false, |c| c.is_ascii_hexdigit())
+    // Address lines must contain a hyphen (e.g., "7f1234-7f5678 r-xp ...")
+    // This prevents lines like "Anonymous: 4 kB" from being treated as address lines
+    line.contains('-') && line.chars().next().map_or(false, |c| c.is_ascii_hexdigit())
 }
 
 

@@ -118,7 +118,7 @@ pub struct MemoryRegion {
     offset: u64,
     device: (u8, u8),
     inode: u64,
-    path_name: Option<PathType>
+    pub path_name: Option<PathType>
 }
 
 /// Extended memory region with detailed smaps statistics

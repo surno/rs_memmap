@@ -1,5 +1,6 @@
 use std::io;
 
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{DefaultTerminal, Frame, buffer::Buffer, layout::Rect, style::Stylize, symbols::border, text::{Line}, widgets::{Block, Paragraph, Widget}};
 
 use crate::process::Process;
@@ -30,7 +31,27 @@ impl App {
     }
 
     fn handle_events(&mut self) -> io::Result<()> {
+        if event::poll(std::time::Duration::from_millis(100))? {
+            match event::read()? {
+                Event::Key(key) if key.kind == KeyEventKind::Press => {
+                    self.handle_key_event(key)
+                }
+                Event::Resize(_, _) => {
+                    // Terminal is resized
+                }
+                _ => {}
+            }
+        }
         Ok(())
+    }
+
+    fn handle_key_event(&mut self, key: KeyEvent) {
+        match key.code {                                                                                                                                
+          KeyCode::Char('q') | KeyCode::Char('Q') => {                                                                                                
+              self.exit = true;                                                                                                                       
+          }                                                                                                                                                                                                                                                                              
+          _ => {}                                                                                                                                     
+        } 
     }
 }
 

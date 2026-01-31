@@ -121,6 +121,23 @@ pub struct MemoryRegion {
     path_name: Option<PathType>
 }
 
+/// Extended memory region with detailed smaps statistics
+pub struct DetailedMemoryRegion {
+    pub region: MemoryRegion,
+    // Memory statistics from smaps (in kB)
+    pub size_kb: u64,
+    pub rss_kb: u64,
+    pub pss_kb: u64,
+    pub shared_clean_kb: u64,
+    pub shared_dirty_kb: u64,
+    pub private_clean_kb: u64,
+    pub private_dirty_kb: u64,
+    pub referenced_kb: u64,
+    pub anonymous_kb: u64,
+    pub swap_kb: u64,
+    pub vm_flags: String,
+}
+
 impl MemoryRegion {
     fn size(&self) -> u64 {
         return self.end - self.start;
@@ -199,6 +216,64 @@ fn parse_device(s: &str) -> Result<(u8, u8), MemoryParseError> {
     let minor = u8::from_str_radix(minor_str, 16)?;
 
     Ok((major, minor))
+}
+
+impl DetailedMemoryRegion {
+    /// Create a new DetailedMemoryRegion from a MemoryRegion with default stats
+    pub fn from_region(region: MemoryRegion) -> Self {
+        Self {
+            region,
+            size_kb: 0,
+            rss_kb: 0,
+            pss_kb: 0,
+            shared_clean_kb: 0,
+            shared_dirty_kb: 0,
+            private_clean_kb: 0,
+            private_dirty_kb: 0,
+            referenced_kb: 0,
+            anonymous_kb: 0,
+            swap_kb: 0,
+            vm_flags: String::new(),
+        }
+    }
+}
+
+/// Parse a detail line from smaps and update the DetailedMemoryRegion
+/// Format: "FieldName:    value kB" or "VmFlags: flag1 flag2 ..."
+pub fn parse_detail_into_region(region: &mut DetailedMemoryRegion, line: &str) {
+    let line = line.trim();
+    if line.is_empty() {
+        return;
+    }
+
+    // Split by ':' to get field name and value
+    let (field, value) = match line.split_once(':') {
+        Some((f, v)) => (f.trim(), v.trim()),
+        None => return,
+    };
+
+    // Helper to parse "1024 kB" -> 1024 (defaults to 0 on error)
+    let parse_kb = |s: &str| -> u64 {
+        s.split_whitespace()
+            .next()
+            .and_then(|num| num.parse().ok())
+            .unwrap_or(0)
+    };
+
+    match field {
+        "Size" => region.size_kb = parse_kb(value),
+        "Rss" => region.rss_kb = parse_kb(value),
+        "Pss" => region.pss_kb = parse_kb(value),
+        "Shared_Clean" => region.shared_clean_kb = parse_kb(value),
+        "Shared_Dirty" => region.shared_dirty_kb = parse_kb(value),
+        "Private_Clean" => region.private_clean_kb = parse_kb(value),
+        "Private_Dirty" => region.private_dirty_kb = parse_kb(value),
+        "Referenced" => region.referenced_kb = parse_kb(value),
+        "Anonymous" => region.anonymous_kb = parse_kb(value),
+        "Swap" => region.swap_kb = parse_kb(value),
+        "VmFlags" => region.vm_flags = value.to_string(),
+        _ => {} // Ignore unknown fields
+    }
 }
 
 fn format_size(bytes: u64) -> String {

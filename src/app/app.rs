@@ -60,14 +60,14 @@ impl Widget for &App {
         let title = Line::from(
             vec![
                 format!(" Process: {}: ", self.process.pid).yellow(),
-                format!("{}", self.process.cmd_line).white()
+                format!("{} ", self.process.cmd_line).white()
             ]);
         let instructions = Line::from(vec![
             " Quit ".into(),
             "<Q> ".blue().bold(),
         ]);
         let block = Block::bordered()
-            .title(title.centered())
+            .title(title.left_aligned())
             .title_bottom(instructions.centered())
             .border_set(border::THICK);
 

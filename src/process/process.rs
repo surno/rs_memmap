@@ -34,6 +34,16 @@ impl Process {
       vec  
     }
 
+    pub fn get_pss_totals(&self) -> SortedRssEntries {
+      let mut map: HashMap<String, u64>    = HashMap::new();                                                                                                                   
+      for region in &self.memory_regions {                                                                                                            
+          *map.entry(region.region.path_name.as_ref().and_then(|x| Some(x.to_string())).unwrap_or("[anonymous]".to_string())).or_default() += region.pss_kb;                                                                                              
+      }                                                                                                                                               
+      let mut vec: SortedRssEntries = map.into_iter().collect();                                                                                                
+      vec.sort_by(|a, b| b.1.cmp(&a.1)); // descending by PSS                                                                                         
+      vec  
+    }
+
 }
 
 impl TryFrom<u32> for Process {
